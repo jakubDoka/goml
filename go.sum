@@ -1,0 +1,4 @@
+github.com/jakubDoka/gogen v0.0.0-20210203193544-0b4c09955618 h1:VU2tz3/QUZ6/xDMNrckKdE4HwbGzJC0vh85BNABrd5I=
+github.com/jakubDoka/gogen v0.0.0-20210203193544-0b4c09955618/go.mod h1:vnGAG1/WWh7Ek7jRDyRLKLQSCHxa5TLos6MkLT5B84w=
+github.com/jakubDoka/sterr v0.0.0-20210204211057-9cff1ab337bb h1:W1tWuNtY3ODrGLqorF+komJbh72EMx5yAsTnA/xosMA=
+github.com/jakubDoka/sterr v0.0.0-20210204211057-9cff1ab337bb/go.mod h1:KwRaF5ZGzdGUQ4bEzH4nNXHZByt5Vww7wNuj/xFjosk=
