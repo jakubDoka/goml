@@ -1,12 +1,287 @@
 package goml
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/jakubDoka/sterr"
 )
+
+type pr = map[string]Div
+
+func TestPrefabGeneration(t *testing.T) {
+	p := NParser()
+	p.AddDefinitions("div")
+	testCases := []struct {
+		desc   string
+		input  string
+		output []Div
+		err    sterr.Err
+	}{
+		{
+			desc: "simple",
+			input: `
+			<!h> 
+				<div/>
+			<!/>
+
+			<h/>
+			`,
+			output: []Div{
+				{
+					Name:       "div",
+					Attributes: Attribs{},
+					Children:   []Div{},
+				},
+			},
+		},
+		{
+			desc: "with attrib",
+			input: `
+			<!h> 
+				<div h={h}/>
+			<!/>
+
+			<h h="h"/>
+			`,
+			output: []Div{
+				{
+					Name: "div",
+					Attributes: Attribs{
+						"h": {"h"},
+					},
+					Children: []Div{},
+					PrefabData: []PrefabData{
+						{
+							Name:   "h",
+							Target: "h",
+							Idx:    -1,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "with list",
+			input: `
+			<!h> 
+				<div h=[{h} {k} {j}]/>
+			<!/>
+
+			<h h="h" k="k"/>
+			`,
+			output: []Div{
+				{
+					Name: "div",
+					Attributes: Attribs{
+						"h": {"h", "k", ""},
+					},
+					Children: []Div{},
+					PrefabData: []PrefabData{
+						{
+							Name:   "h",
+							Target: "h",
+							Idx:    0,
+						},
+						{
+							Name:   "k",
+							Target: "h",
+							Idx:    1,
+						},
+						{
+							Name:   "j",
+							Target: "h",
+							Idx:    2,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "with list",
+			input: `
+			<!h> 
+				<div h="hello {there}"/>
+			<!/>
+
+			<h there="meme"/>
+			`,
+			output: []Div{
+				{
+					Name: "div",
+					Attributes: Attribs{
+						"h": {"hello meme"},
+					},
+					Children: []Div{},
+					PrefabData: []PrefabData{
+						{
+							Name:   "there",
+							Target: "h",
+							Idx:    -2,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "with list",
+			input: `
+			<!h> 
+				{there}
+			<!/>
+
+			<h there="meme"/>
+			`,
+			output: []Div{
+				{
+					Name: "text",
+					Attributes: Attribs{
+						"text": {"meme"},
+					},
+					Children: []Div{},
+					PrefabData: []PrefabData{
+						{
+							Name:   "there",
+							Target: "text",
+							Idx:    -2,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			p.ClearPrefabs()
+			div, err := p.Parse([]byte(tC.input))
+			if !tC.err.SameSurface(err) {
+				t.Error(p.err)
+				t.Error(string(p.ch))
+				return
+			}
+
+			if p.Failed() {
+				return
+			}
+
+			if !reflect.DeepEqual(div.Children, tC.output) {
+				t.Errorf("\n%#v\n%#v", div.Children, tC.output)
+			}
+		})
+	}
+}
+
+func TestPrefabDef(t *testing.T) {
+	p := NParser()
+	p.AddDefinitions("div")
+	testCases := []struct {
+		desc   string
+		input  string
+		output pr
+		err    sterr.Err
+	}{
+		{
+			desc:  "empthy",
+			input: `<!prefab><!/>`,
+			output: pr{
+				"prefab": Div{
+					Name:       "prefab",
+					Attributes: Attribs{},
+				},
+			},
+		},
+		{
+			desc: "ident",
+			input: `<!prefab>
+				<div h={}/>
+			<!/>`,
+			err: ErrPrefab.Ident,
+		},
+		{
+			desc:  "outside",
+			input: `<div h={h}/>`,
+			err:   ErrPrefab.Outside,
+		},
+		{
+			desc:  "outside text",
+			input: ` {h} `,
+			err:   ErrPrefab.Outside,
+		},
+		{
+			desc:  "duplicate",
+			input: `<!prefab><!/><!prefab><!/>`,
+			err:   ErrPrefab.Shadow,
+		},
+		{
+			desc:  "attributes",
+			input: `<!prefab h="h">`,
+			err:   ErrPrefab.Attributes,
+		},
+		{
+			desc:  "incomplete",
+			input: `<!`,
+			err:   ErrDiv.Incomplete,
+		},
+		{
+			desc:  "extra closure",
+			input: `<!/>`,
+			err:   ErrDiv.ExtraClosure,
+		},
+		{
+			desc: "template",
+			input: `
+<!prefab>
+	<div hello={mel} ffl=["gl" {ghl}]/>
+<!/>
+			`,
+			output: pr{
+				"prefab": Div{
+					Name:       "prefab",
+					Attributes: Attribs{},
+					Children: []Div{
+						{
+							Name: "div",
+							Attributes: Attribs{
+								"ffl": {"gl", ""},
+							},
+							PrefabData: []PrefabData{
+								{
+									Name:   "mel",
+									Target: "hello",
+									Idx:    -1,
+								},
+								{
+									Name:   "ghl",
+									Target: "ffl",
+									Idx:    1,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			p.ClearPrefabs()
+			_, err := p.Parse([]byte(tC.input))
+			if !tC.err.SameSurface(err) {
+				t.Error(p.err)
+				t.Error(string(p.ch))
+				return
+			}
+
+			if p.Failed() {
+				return
+			}
+
+			if !reflect.DeepEqual(p.prefabs, tC.output) {
+				t.Error(p.prefabs)
+			}
+		})
+	}
+}
 
 func TestParse(t *testing.T) {
 	p := NParser()
@@ -23,6 +298,7 @@ func TestParse(t *testing.T) {
 <div> 
 	<fiv> 
 		<giv/>
+		hello
 		<giv/>
 	</>
 </>
@@ -41,6 +317,10 @@ func TestParse(t *testing.T) {
 									Attributes: Attribs{},
 								},
 								{
+									Name:       "text",
+									Attributes: Attribs{"text": {"hello"}},
+								},
+								{
 									Name:       "giv",
 									Attributes: Attribs{},
 								},
@@ -55,6 +335,7 @@ func TestParse(t *testing.T) {
 			input: `<`,
 			err:   ErrDiv.Incomplete,
 		},
+
 		{
 			desc:  "after slash",
 			input: `<div></`,
@@ -66,13 +347,14 @@ func TestParse(t *testing.T) {
 			err:   ErrDiv.ExtraClosure,
 		},
 		{
-			desc:  "unexpected",
-			input: `<div>a</></>`,
-			err:   ErrByte,
+			desc:  "div error",
+			input: `<div/ >`,
+			err:   ErrDiv.AfterSlash,
 		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			p.ClearPrefabs()
 			div, err := p.Parse([]byte(tC.input))
 			if !tC.err.SameSurface(err) {
 				t.Error(p.err)
@@ -85,7 +367,7 @@ func TestParse(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(div.Children, tC.output) {
-				t.Error(div)
+				t.Error(div.Children, p.stack)
 			}
 		})
 	}
@@ -135,7 +417,7 @@ func TestDiv(t *testing.T) {
 		{
 			desc:  "unknown identifier",
 			input: `<riv/>`,
-			err:   ErrDiv.Unknown,
+			err:   ErrUnknown,
 		},
 		{
 			desc:  "invalid end",
@@ -147,12 +429,18 @@ func TestDiv(t *testing.T) {
 			input: `<div=/>`,
 			err:   ErrDiv.AfterIdent,
 		},
+		{
+			desc:  "attrib err",
+			input: `<div h,"f"/>`,
+			err:   ErrAttrib.Assignmant,
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			p.Restart([]byte(tC.input))
 			p.Advance()
-			p.Div()
+			p.Advance()
+			p.Div(false)
 			if !tC.err.SameSurface(p.err) {
 				t.Error(p.err)
 				return
@@ -233,14 +521,24 @@ func TestParseValue(t *testing.T) {
 		},
 		{
 			desc:  "list",
-			input: `hello=["hello"]`,
+			input: `hello=["hello"] `,
 			output: Attribs{
 				"hello": {"hello"},
 			},
 		},
 		{
+			desc:  "list",
+			input: `hello=["hello\xkk"] `,
+			err:   ErrEscape.Illegal,
+		},
+		{
+			desc:  "list",
+			input: `hello=[{hello}] `,
+			err:   ErrPrefab.Outside,
+		},
+		{
 			desc:  "long list",
-			input: `hello=["hello" "fl" "gg" "mm"]`,
+			input: `hello=["hello" "fl" "gg" "mm"] `,
 			output: Attribs{
 				"hello": {"hello", "fl", "gg", "mm"},
 			},
@@ -297,6 +595,8 @@ func TestParseString(t *testing.T) {
 	testCases := []struct {
 		desc          string
 		output, input string
+		ending        byte
+		omit          bool
 		err           sterr.Err
 	}{
 		{
@@ -384,12 +684,36 @@ func TestParseString(t *testing.T) {
 			input: "\\kFF\"",
 			err:   ErrEscape.InvalidIdent,
 		},
+		{
+			desc:   "navigation runes",
+			input:  "\t\r\n\"",
+			output: "   ",
+		},
+		{
+			desc:   "template string",
+			input:  "{hello} {{hello}\"",
+			output: "{hello} {hello}",
+		},
+		{
+			desc:  "template string",
+			input: "{",
+			err:   ErrStringNotTerminated,
+		},
+		{
+			desc:   "concat space",
+			omit:   true,
+			input:  "a   b\"",
+			output: "a b",
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			p.Restart([]byte(tC.input))
-			p.String()
-			fmt.Println(tC.input)
+			p.inPrefab = true
+			if tC.ending == 0 {
+				tC.ending = '"'
+			}
+			p.String(tC.ending, tC.omit)
 			if !tC.err.SameSurface(p.err) {
 				t.Error(p.err)
 				return

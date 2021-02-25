@@ -23,18 +23,36 @@ var ErrEscape = struct {
 }
 
 // String parses started string into p.stringBuff
-func (p *Parser) String() {
+func (p *Parser) String(ending byte, concatSpace bool) bool {
 	p.stringBuff = p.stringBuff[:0]
-	for r, finished := p.UnquoteChar(); !finished; r, finished = p.UnquoteChar() {
+	var r rune
+	var fin bool
+	for {
+		afterSpace := r == ' '
+		r, fin = p.UnquoteChar(ending)
 		if p.Failed() {
-			return
+			return false
+		}
+		if fin {
+			break
+		}
+		if concatSpace && afterSpace && r == ' ' {
+			continue
 		}
 		p.stringBuff = append(p.stringBuff, r)
 	}
+
+	l := len(p.stringBuff) - 1
+	if concatSpace && l != -1 {
+		if p.stringBuff[l] == ' ' {
+			p.stringBuff = p.stringBuff[:l]
+		}
+	}
+	return true
 }
 
 // UnquoteChar turns a go string syntax to its data representation
-func (p *Parser) UnquoteChar() (r rune, end bool) {
+func (p *Parser) UnquoteChar(ending byte) (r rune, end bool) {
 	if !p.Advance() {
 		p.Error(ErrStringNotTerminated)
 		return
@@ -53,7 +71,12 @@ func (p *Parser) UnquoteChar() (r rune, end bool) {
 
 	switch p.ch {
 	case '\\':
-	case '"':
+	// these runes are ignored, to add actual ones syntax has to be used
+	case '\n', '\t', '\r':
+		return ' ', false
+	case '{':
+		return p.StringTemplate(), false
+	case ending:
 		p.Advance()
 		return 0, true
 	default:
@@ -80,31 +103,19 @@ func (p *Parser) UnquoteChar() (r rune, end bool) {
 		return '\t', false
 	case 'v':
 		return '\v', false
-	case '\\', '"':
+	case '\\', ending:
 		return rune(p.ch), false
 	}
 
 	if p.ch >= '0' && p.ch <= '7' {
-		v := rune(p.ch) - '0'
-		for j := 0; j < 2; j++ {
-			if !p.Advance() {
-				p.Error(ErrEscape.Incomplete)
-				return
-			}
-			x := rune(p.ch) - '0'
-			if x < 0 || x > 7 {
-				p.Error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
-				return
-			}
-			v = (v << 3) | x
-		}
-		if v > 255 {
-			p.Error(ErrEscape.Overflow.Args(225))
-			return
-		}
-		return v, false
+		return p.Octal(), false
 	}
 
+	return p.Hex(), false
+}
+
+// Hex parses all of three possible hex rune syntaxes
+func (p *Parser) Hex() (r rune) {
 	var n int
 	switch p.ch {
 	case 'x':
@@ -120,9 +131,10 @@ func (p *Parser) UnquoteChar() (r rune, end bool) {
 
 	var v int
 	for j := 0; j < n; j++ {
-		if !p.Advance() {
-			p.Error(ErrEscape.Incomplete)
+		if p.AdvanceOr(ErrEscape.Incomplete) {
+			return
 		}
+
 		x, ok := unHex(p.ch)
 		if !ok {
 			p.Error(ErrEscape.Illegal.Args("hex bytes"))
@@ -136,11 +148,11 @@ func (p *Parser) UnquoteChar() (r rune, end bool) {
 		return
 	}
 
-	return rune(v), false
+	return rune(v)
 }
 
-func unHex(b byte) (v rune, ok bool) {
-	c := rune(b)
+// classic hex to byte
+func unHex(c byte) (v byte, ok bool) {
 	switch {
 	case '0' <= c && c <= '9':
 		return c - '0', true
@@ -150,4 +162,50 @@ func unHex(b byte) (v rune, ok bool) {
 		return c - 'A' + 10, true
 	}
 	return
+}
+
+// Octal parses octal byte syntax
+func (p *Parser) Octal() (v rune) {
+	v = rune(p.ch) - '0'
+	for j := 0; j < 2; j++ {
+		if !p.Advance() {
+			p.Error(ErrEscape.Incomplete)
+			return
+		}
+		x := rune(p.ch) - '0'
+		if x < 0 || x > 7 {
+			p.Error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
+			return
+		}
+		v = (v << 3) | x
+	}
+
+	if v > 255 {
+		p.Error(ErrEscape.Overflow.Args(225))
+		return
+	}
+
+	return v
+}
+
+// StringTemplate registers string template if there is just one '{'
+func (p *Parser) StringTemplate() (r rune) {
+	if p.AdvanceOr(ErrStringNotTerminated) {
+		return
+	}
+	if p.ch == '{' {
+		return '{'
+	}
+	p.Degrade()
+	start := p.i
+	if !p.Template(&p.parsed, StringTemplate) {
+		return
+	}
+	p.Degrade()
+	for i := start; i < p.i; {
+		r, size := utf8.DecodeRune(p.source[i:])
+		p.stringBuff = append(p.stringBuff, r)
+		i += size
+	}
+	return '}'
 }
