@@ -6,7 +6,7 @@ import (
 	"github.com/jakubDoka/sterr"
 )
 
-// escape errors
+// string related errors
 var (
 	ErrStringNotTerminated = sterr.New("string is not terminated")
 	ErrInvalidRune         = sterr.New("rune is not terminated or cannot be decoded by utf8")
@@ -23,14 +23,14 @@ var ErrEscape = struct {
 }
 
 // String parses started string into p.stringBuff
-func (p *Parser) String(ending byte, concatSpace bool) bool {
+func (p *Parser) string(ending byte, concatSpace bool) bool {
 	p.stringBuff = p.stringBuff[:0]
 	var r rune
 	var fin bool
 	for {
 		afterSpace := r == ' '
-		r, fin = p.UnquoteChar(ending)
-		if p.Failed() {
+		r, fin = p.char(ending)
+		if p.failed() {
 			return false
 		}
 		if fin {
@@ -51,10 +51,10 @@ func (p *Parser) String(ending byte, concatSpace bool) bool {
 	return true
 }
 
-// UnquoteChar turns a go string syntax to its data representation
-func (p *Parser) UnquoteChar(ending byte) (r rune, end bool) {
-	if !p.Advance() {
-		p.Error(ErrStringNotTerminated)
+// char turns a go string syntax to its data representation
+func (p *Parser) char(ending byte) (r rune, end bool) {
+	if !p.advance() {
+		p.error(ErrStringNotTerminated)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (p *Parser) UnquoteChar(ending byte) (r rune, end bool) {
 		var size int
 		r, size = utf8.DecodeRune(p.source[p.i:])
 		if r == utf8.RuneError {
-			p.Error(ErrInvalidRune)
+			p.error(ErrInvalidRune)
 			return
 		}
 		p.i += size - 1
@@ -75,16 +75,16 @@ func (p *Parser) UnquoteChar(ending byte) (r rune, end bool) {
 	case '\n', '\t', '\r':
 		return ' ', false
 	case '{':
-		return p.StringTemplate(), false
+		return p.stringTemplate(), false
 	case ending:
-		p.Advance()
+		p.advance()
 		return 0, true
 	default:
 		return rune(p.ch), false
 	}
 
-	if !p.Advance() {
-		p.Error(ErrEscape.Incomplete)
+	if !p.advance() {
+		p.error(ErrEscape.Incomplete)
 		return
 	}
 
@@ -108,14 +108,14 @@ func (p *Parser) UnquoteChar(ending byte) (r rune, end bool) {
 	}
 
 	if p.ch >= '0' && p.ch <= '7' {
-		return p.Octal(), false
+		return p.octal(), false
 	}
 
-	return p.Hex(), false
+	return p.hex(), false
 }
 
-// Hex parses all of three possible hex rune syntaxes
-func (p *Parser) Hex() (r rune) {
+// hex parses all of three possible hex rune syntaxes (\x00 \u0000 \U00000000)
+func (p *Parser) hex() (r rune) {
 	var n int
 	switch p.ch {
 	case 'x':
@@ -125,26 +125,26 @@ func (p *Parser) Hex() (r rune) {
 	case 'U':
 		n = 8
 	default:
-		p.Error(ErrEscape.InvalidIdent)
+		p.error(ErrEscape.InvalidIdent)
 		return
 	}
 
 	var v int
 	for j := 0; j < n; j++ {
-		if p.AdvanceOr(ErrEscape.Incomplete) {
+		if p.advanceOr(ErrEscape.Incomplete) {
 			return
 		}
 
 		x, ok := unHex(p.ch)
 		if !ok {
-			p.Error(ErrEscape.Illegal.Args("hex bytes"))
+			p.error(ErrEscape.Illegal.Args("hex bytes"))
 			return
 		}
 		v = v<<4 | int(x)
 	}
 
 	if v > utf8.MaxRune {
-		p.Error(ErrEscape.Overflow.Args(utf8.MaxRune))
+		p.error(ErrEscape.Overflow.Args(utf8.MaxRune))
 		return
 	}
 
@@ -164,44 +164,44 @@ func unHex(c byte) (v byte, ok bool) {
 	return
 }
 
-// Octal parses octal byte syntax
-func (p *Parser) Octal() (v rune) {
+// octal parses octal byte syntax assuming that first byte is between '0' - '7' (\000)
+func (p *Parser) octal() (v rune) {
 	v = rune(p.ch) - '0'
 	for j := 0; j < 2; j++ {
-		if !p.Advance() {
-			p.Error(ErrEscape.Incomplete)
+		if !p.advance() {
+			p.error(ErrEscape.Incomplete)
 			return
 		}
 		x := rune(p.ch) - '0'
 		if x < 0 || x > 7 {
-			p.Error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
+			p.error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
 			return
 		}
 		v = (v << 3) | x
 	}
 
 	if v > 255 {
-		p.Error(ErrEscape.Overflow.Args(225))
+		p.error(ErrEscape.Overflow.Args(225))
 		return
 	}
 
 	return v
 }
 
-// StringTemplate registers string template if there is just one '{'
-func (p *Parser) StringTemplate() (r rune) {
-	if p.AdvanceOr(ErrStringNotTerminated) {
+// stringTemplate registers string template if there is just one '{'
+func (p *Parser) stringTemplate() (r rune) {
+	if p.advanceOr(ErrStringNotTerminated) {
 		return
 	}
 	if p.ch == '{' {
 		return '{'
 	}
-	p.Degrade()
+	p.degrade() // we advanced to get whats behind '{' so wh have to step back for template to read whole ident
 	start := p.i
-	if !p.Template(&p.parsed, StringTemplate) {
+	if !p.template(&p.parsed, stringTemplate) {
 		return
 	}
-	p.Degrade()
+	p.degrade() // degrade again or we will end up with '}}'
 	for i := start; i < p.i; {
 		r, size := utf8.DecodeRune(p.source[i:])
 		p.stringBuff = append(p.stringBuff, r)

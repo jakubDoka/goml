@@ -7,7 +7,7 @@ import (
 	"github.com/jakubDoka/sterr"
 )
 
-type pr = map[string]Div
+type pr = map[string]Element
 
 func TestPrefabGeneration(t *testing.T) {
 	p := NParser()
@@ -15,7 +15,7 @@ func TestPrefabGeneration(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		input  string
-		output []Div
+		output []Element
 		err    sterr.Err
 	}{
 		{
@@ -27,11 +27,11 @@ func TestPrefabGeneration(t *testing.T) {
 
 			<h/>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name:       "div",
 					Attributes: Attribs{},
-					Children:   []Div{},
+					Children:   []Element{},
 				},
 			},
 		},
@@ -44,14 +44,14 @@ func TestPrefabGeneration(t *testing.T) {
 
 			<h h="h"/>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name: "div",
 					Attributes: Attribs{
 						"h": {"h"},
 					},
-					Children: []Div{},
-					PrefabData: []PrefabData{
+					Children: []Element{},
+					prefabData: []prefabData{
 						{
 							Name:   "h",
 							Target: "h",
@@ -70,14 +70,14 @@ func TestPrefabGeneration(t *testing.T) {
 
 			<h h="h" k="k"/>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name: "div",
 					Attributes: Attribs{
 						"h": {"h", "k", ""},
 					},
-					Children: []Div{},
-					PrefabData: []PrefabData{
+					Children: []Element{},
+					prefabData: []prefabData{
 						{
 							Name:   "h",
 							Target: "h",
@@ -106,14 +106,14 @@ func TestPrefabGeneration(t *testing.T) {
 
 			<h there="meme"/>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name: "div",
 					Attributes: Attribs{
 						"h": {"hello meme"},
 					},
-					Children: []Div{},
-					PrefabData: []PrefabData{
+					Children: []Element{},
+					prefabData: []prefabData{
 						{
 							Name:   "there",
 							Target: "h",
@@ -132,14 +132,14 @@ func TestPrefabGeneration(t *testing.T) {
 
 			<h there="meme"/>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name: "text",
 					Attributes: Attribs{
 						"text": {"meme"},
 					},
-					Children: []Div{},
-					PrefabData: []PrefabData{
+					Children: []Element{},
+					prefabData: []prefabData{
 						{
 							Name:   "there",
 							Target: "text",
@@ -160,7 +160,7 @@ func TestPrefabGeneration(t *testing.T) {
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
@@ -184,7 +184,7 @@ func TestPrefabDef(t *testing.T) {
 			desc:  "empthy",
 			input: `<!prefab><!/>`,
 			output: pr{
-				"prefab": Div{
+				"prefab": Element{
 					Name:       "prefab",
 					Attributes: Attribs{},
 				},
@@ -195,7 +195,7 @@ func TestPrefabDef(t *testing.T) {
 			input: `<!prefab>
 				<div h={}/>
 			<!/>`,
-			err: ErrPrefab.Ident,
+			err: ErrPrefab.ident,
 		},
 		{
 			desc:  "outside",
@@ -235,16 +235,16 @@ func TestPrefabDef(t *testing.T) {
 <!/>
 			`,
 			output: pr{
-				"prefab": Div{
+				"prefab": Element{
 					Name:       "prefab",
 					Attributes: Attribs{},
-					Children: []Div{
+					Children: []Element{
 						{
 							Name: "div",
 							Attributes: Attribs{
 								"ffl": {"gl", ""},
 							},
-							PrefabData: []PrefabData{
+							prefabData: []prefabData{
 								{
 									Name:   "mel",
 									Target: "hello",
@@ -272,7 +272,7 @@ func TestPrefabDef(t *testing.T) {
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
@@ -289,7 +289,7 @@ func TestParse(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		input  string
-		output []Div
+		output []Element
 		err    sterr.Err
 	}{
 		{
@@ -303,15 +303,15 @@ func TestParse(t *testing.T) {
 	</>
 </>
 			`,
-			output: []Div{
+			output: []Element{
 				{
 					Name:       "div",
 					Attributes: Attribs{},
-					Children: []Div{
+					Children: []Element{
 						{
 							Name:       "fiv",
 							Attributes: Attribs{},
-							Children: []Div{
+							Children: []Element{
 								{
 									Name:       "giv",
 									Attributes: Attribs{},
@@ -362,7 +362,7 @@ func TestParse(t *testing.T) {
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
@@ -383,13 +383,13 @@ func TestDiv(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		input  string
-		output []Div
+		output []Element
 		err    sterr.Err
 	}{
 		{
 			desc:  "simple",
 			input: `<div hello="hello" krr=["asd" "asd"]/>`,
-			output: []Div{
+			output: []Element{
 				{
 					Name: "div",
 					Attributes: Attribs{
@@ -402,7 +402,7 @@ func TestDiv(t *testing.T) {
 		{
 			desc:  "unfinished",
 			input: `<div>`,
-			output: []Div{
+			output: []Element{
 				{
 					Name:       "div",
 					Attributes: Attribs{},
@@ -438,19 +438,19 @@ func TestDiv(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			p.Restart([]byte(tC.input))
-			p.Advance()
-			p.Advance()
-			p.Div(false)
+			p.advance()
+			p.advance()
+			p.element(false)
 			if !tC.err.SameSurface(p.err) {
 				t.Error(p.err)
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
-			if !reflect.DeepEqual(p.root.Children, tC.output) && !reflect.DeepEqual([]Div(p.stack), tC.output) {
+			if !reflect.DeepEqual(p.root.Children, tC.output) && !reflect.DeepEqual([]Element(p.stack), tC.output) {
 				t.Error(p.root.Children, p.stack, tC.output)
 			}
 		})
@@ -548,14 +548,14 @@ func TestParseValue(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			p.Restart([]byte(tC.input))
 			p.parsed = NDiv()
-			p.Attribute()
+			p.attribute()
 			if !tC.err.SameSurface(p.err) {
 				t.Error(p.err)
 				t.Error(string(p.ch))
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
@@ -713,13 +713,13 @@ func TestParseString(t *testing.T) {
 			if tC.ending == 0 {
 				tC.ending = '"'
 			}
-			p.String(tC.ending, tC.omit)
+			p.string(tC.ending, tC.omit)
 			if !tC.err.SameSurface(p.err) {
 				t.Error(p.err)
 				return
 			}
 
-			if p.Failed() {
+			if p.failed() {
 				return
 			}
 
