@@ -21,6 +21,14 @@ var (
 	ErrUnknown = sterr.New("use of unknown identifier")
 )
 
+// ErrComment store comment related errors
+var ErrComment = struct {
+	AfterHash, NotClosed sterr.Err
+}{
+	sterr.New("'#' has to be folloved by '>' when declaring comment"),
+	sterr.New("comment is not terminated"),
+}
+
 // ErrDiv stores errors related to div
 var ErrDiv = struct {
 	Incomplete, Identifier, AfterIdent, AfterSlash, ExtraClosure sterr.Err
@@ -53,6 +61,9 @@ var ErrAttrib = struct {
 	sterr.New("unexpected in-between byte in list definition, use just one ' ' to separate values"),
 	sterr.New("list is incomplete"),
 }
+
+// CommentEnd is group of comment closing bytes
+var CommentEnd = []byte("<#>")
 
 // Parser takes a goml syntax and parses it into DivTree
 type Parser struct {
@@ -144,7 +155,7 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 
 			switch p.ch {
 			case '/':
-				if !p.elementEnd() {
+				if !p.elementEnd(false) {
 					break
 				}
 			case '!':
@@ -153,7 +164,7 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 				}
 
 				if p.ch == '/' {
-					if !p.elementEnd() {
+					if !p.elementEnd(true) {
 						break
 					}
 					continue
@@ -162,6 +173,25 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 				p.inPrefab = true
 				if !p.element(true) {
 					break
+				}
+			case '#':
+				if p.check('>', ErrComment.AfterHash) {
+					break
+				}
+				for {
+					equal, ok := p.checkSlice(CommentEnd)
+					if !ok {
+						p.error(ErrComment.NotClosed)
+						break
+					}
+					if equal {
+						p.advance()
+						p.advance()
+						p.advance()
+						break
+					} else {
+						p.advance()
+					}
 				}
 			default:
 				if !p.element(false) {
@@ -194,14 +224,14 @@ func (p *Parser) textElement() bool {
 }
 
 // elementEnd closes a p.current() div, also verifies that closing syntax is correct
-func (p *Parser) elementEnd() bool {
+func (p *Parser) elementEnd(prefab bool) bool {
 	if p.check('>', ErrDiv.AfterSlash) {
 		return false
 	}
 
 	if p.stack.CanPop() {
 		d := p.stack.Pop()
-		if p.inPrefab {
+		if p.inPrefab && prefab {
 			p.prefabs[d.Name] = d
 			p.inPrefab = false
 		} else {
@@ -386,6 +416,24 @@ func (p *Parser) failed() bool {
 // error sets p.err and adds the line info
 func (p *Parser) error(err sterr.Err) {
 	p.err = err.Wrap(ErrReport.Args(p.line, p.i-p.lineStart))
+}
+
+// checkSlice checks if next len(lice) bytes are equal to slice content
+//
+// ok will be false if there is not enough bytes in p.source
+// equal will be true if slices are equal
+func (p *Parser) checkSlice(slice []byte) (equal, ok bool) {
+	if len(p.source) <= len(slice)+p.i {
+		return
+	}
+
+	for i := 0; i < len(slice); i++ {
+		if p.source[p.i+i] != slice[i] {
+			return false, true
+		}
+	}
+
+	return true, true
 }
 
 // check returns false if p.advance succeeds and p.ch == b

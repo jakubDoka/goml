@@ -9,6 +9,37 @@ import (
 
 type pr = map[string]Element
 
+func TestShowcase(t *testing.T) {
+	p := NParser()
+	p.AddDefinitions("div")
+	d, err := p.Parse([]byte(`
+<#>prefab definition<#>
+<!yes_no>
+    <div> 
+        <button onclick={yes}>yes</>
+        <button onclick={no}>no</>
+    </>
+<!/>
+
+<div>Hello, is monday today?</>
+<yes_no yes="yes-handler-link" no="no-handler-link"/>
+	`))
+
+	_ = d
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	/*b, err := json.MarshalIndent(d, "", "\t")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Error(string(b))*/
+}
+
 func TestPrefabGeneration(t *testing.T) {
 	p := NParser()
 	p.AddDefinitions("div")
@@ -174,6 +205,12 @@ func TestPrefabGeneration(t *testing.T) {
 func TestPrefabDef(t *testing.T) {
 	p := NParser()
 	p.AddDefinitions("div")
+	err := p.AddPrefabs([]byte(`<!ff><!/>`))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	p.RemovePrefabs("ff")
 	testCases := []struct {
 		desc   string
 		input  string
@@ -295,6 +332,7 @@ func TestParse(t *testing.T) {
 		{
 			desc: "simple",
 			input: `
+<#>comment<#>
 <div> 
 	<fiv> 
 		<giv/>
@@ -335,7 +373,16 @@ func TestParse(t *testing.T) {
 			input: `<`,
 			err:   ErrDiv.Incomplete,
 		},
-
+		{
+			desc:  "comment after hash",
+			input: `<#`,
+			err:   ErrComment.AfterHash,
+		},
+		{
+			desc:  "comment not closed",
+			input: `<#>asd`,
+			err:   ErrComment.NotClosed,
+		},
 		{
 			desc:  "after slash",
 			input: `<div></`,
@@ -702,8 +749,8 @@ func TestParseString(t *testing.T) {
 		{
 			desc:   "concat space",
 			omit:   true,
-			input:  "a   b\"",
-			output: "a b",
+			input:  "a \\  b \t\"",
+			output: "a  b",
 		},
 	}
 	for _, tC := range testCases {

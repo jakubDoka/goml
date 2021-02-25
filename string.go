@@ -36,18 +36,28 @@ func (p *Parser) string(ending byte, concatSpace bool) bool {
 		if fin {
 			break
 		}
-		if concatSpace && afterSpace && r == ' ' {
+		if concatSpace && afterSpace && r == ' ' && p.source[p.i-1] != '\\' {
 			continue
 		}
 		p.stringBuff = append(p.stringBuff, r)
 	}
 
-	l := len(p.stringBuff) - 1
-	if concatSpace && l != -1 {
-		if p.stringBuff[l] == ' ' {
-			p.stringBuff = p.stringBuff[:l]
+	if concatSpace { // cutting off the invisible characters
+		l := len(p.stringBuff) - 1
+	o:
+		for l >= 0 {
+			switch p.stringBuff[l] {
+			case '\n', ' ', '\t', '\r':
+				l--
+			default:
+				break o
+			}
+		}
+		if l != -1 {
+			p.stringBuff = p.stringBuff[:l+1]
 		}
 	}
+
 	return true
 }
 
@@ -103,7 +113,7 @@ func (p *Parser) char(ending byte) (r rune, end bool) {
 		return '\t', false
 	case 'v':
 		return '\v', false
-	case '\\', ending:
+	case '\\', ' ', ending:
 		return rune(p.ch), false
 	}
 
