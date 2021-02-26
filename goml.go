@@ -31,13 +31,14 @@ var ErrComment = struct {
 
 // ErrDiv stores errors related to div
 var ErrDiv = struct {
-	Incomplete, Identifier, AfterIdent, AfterSlash, ExtraClosure sterr.Err
+	Incomplete, Identifier, AfterIdent, AfterSlash, ExtraClosure, MissingClosure sterr.Err
 }{
 	sterr.New("incompleteelementdefinition"),
 	sterr.New("'<' must be folloved by element identifier when defining div"),
 	sterr.New("ident of element has to be folloved by ' ' or '/' or '>'"),
 	sterr.New("'/' must alway be folloved by '>' if its part of element definition"),
 	sterr.New("found closing syntax but there is no element to close"),
+	sterr.New("some elements is not closed"),
 }
 
 // ErrPrefab stores prefab related errors
@@ -203,6 +204,10 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 		}
 	}
 
+	if len(p.stack) != 0 {
+		p.error(ErrDiv.MissingClosure)
+	}
+
 	return p.root, p.err
 }
 
@@ -217,9 +222,12 @@ func (p *Parser) textElement() bool {
 	}
 	p.parsed.Attributes[p.attribIdent] = []string{string(p.stringBuff)}
 
+	if p.peek() {
+		p.degrade()
+		p.degrade()
+	}
+
 	p.add(p.parsed)
-	p.degrade()
-	p.degrade()
 	return true
 }
 
@@ -501,9 +509,13 @@ func (p *Parser) peek() bool {
 }
 
 // degrade goes one byte back, opposite of p.advance
-func (p *Parser) degrade() {
+func (p *Parser) degrade() bool {
 	p.i--
+	if p.i < 0 {
+		return false
+	}
 	p.ch = p.source[p.i]
+	return true
 }
 
 // add adds child to current div

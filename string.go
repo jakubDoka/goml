@@ -50,6 +50,7 @@ func (p *Parser) string(ending byte, concatSpace bool) bool {
 			case '\n', ' ', '\t', '\r':
 				l--
 			default:
+
 				break o
 			}
 		}
@@ -57,13 +58,15 @@ func (p *Parser) string(ending byte, concatSpace bool) bool {
 			p.stringBuff = p.stringBuff[:l+1]
 		}
 	}
-
 	return true
 }
 
 // char turns a go string syntax to its data representation
 func (p *Parser) char(ending byte) (r rune, end bool) {
 	if !p.advance() {
+		if ending == '<' {
+			return 0, true
+		}
 		p.error(ErrStringNotTerminated)
 		return
 	}

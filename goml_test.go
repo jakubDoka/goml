@@ -241,7 +241,7 @@ func TestPrefabDef(t *testing.T) {
 		},
 		{
 			desc:  "outside text",
-			input: ` {h} `,
+			input: `{h}`,
 			err:   ErrPrefab.Outside,
 		},
 		{
@@ -332,15 +332,15 @@ func TestParse(t *testing.T) {
 		{
 			desc: "simple",
 			input: `
-<#>comment<#>
-<div> 
-	<fiv> 
-		<giv/>
-		hello
-		<giv/>
-	</>
-</>
-			`,
+		<#>comment<#>
+		<div>
+			<fiv>
+				<giv/>
+				hello
+				<giv/>
+			</>
+		</>
+					`,
 			output: []Element{
 				{
 					Name:       "div",
@@ -364,6 +364,18 @@ func TestParse(t *testing.T) {
 								},
 							},
 						},
+					},
+				},
+			},
+		},
+		{
+			desc:  "just text",
+			input: `hello `,
+			output: []Element{
+				{
+					Name: "text",
+					Attributes: Attribs{
+						"text": {"hello"},
 					},
 				},
 			},
