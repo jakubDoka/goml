@@ -83,7 +83,9 @@ type Parser struct {
 	parser
 }
 
-// NParser creates ready-to-use Parser
+// NParser creates ready-to-use Parser, sp is optional goss parser
+// witch will be used when element has attribute "style", content of attribute will be
+// parsed and stored as Style in Element
 func NParser(sp *goss.Parser) *Parser {
 	return &Parser{
 		defined: map[string]bool{},

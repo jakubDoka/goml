@@ -70,8 +70,8 @@ func TestShowcase(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 		return
-	}
-	t.Error(string(b))*/
+	}*/
+	t.Errorf("%#v", d)
 }
 
 func TestPrefabGeneration(t *testing.T) {

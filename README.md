@@ -1,6 +1,6 @@
 # goml
 
-goml is a html-like "language" parser, module does not focus on rendering, only translating goml into useful data-structure. its very similar to html though syntax is stricter and also supports some additional features. JavaScript is not supported. 
+goml is a html-like "language" parser, module does not focus on rendering, only translating goml into useful data-structure. its very similar to html though syntax is stricter and also supports some additional features. JavaScript is not supported.
 
 ## Showcase
 
@@ -18,73 +18,71 @@ goml is a html-like "language" parser, module does not focus on rendering, only 
 <yes_no yes="yes-handler-link" no="no-handler-link"/>
 ```
 
-If we pass following "code" to parse it will return (result is formatted by json.MarshallIdent so it is more readable)
+If we pass following "code" to parse it will return:
 
-```json
-{
-    "Name": "",
-    "Attributes": {},
-    "Children": [
+```go
+goml.Element{
+    Name: "",
+    Children: []goml.Element{
         {
-            "Name": "div",
-            "Attributes": {},
-            "Children": [
+            Name: "div",
+            Children: []goml.Element{
                 {
-                    "Name": "text",
-                    "Attributes": {
-                        "text": [
-                            "Hello, is monday today?"
-                        ]
+                    Name: "text",
+                    Attributes: map[string][]string{
+                        "text": {"Hello, is monday today?"},
                     },
-                    "Children": null
-                }
-            ]
-        },
-        {
-            "Name": "div",
-            "Attributes": {},
-            "Children": [
-                {
-                    "Name": "button",
-                    "Attributes": {
-                        "onclick": [
-                            "yes-handler-link"
-                        ]
-                    },
-                    "Children": [
-                        {
-                            "Name": "text",
-                            "Attributes": {
-                                "text": [
-                                    "yes"
-                                ]
-                            },
-                            "Children": []
-                        }
-                    ]
                 },
                 {
-                    "Name": "button",
-                    "Attributes": {
-                        "onclick": [
-                            "no-handler-link"
-                        ]
-                    },
-                    "Children": [
+                    Name: "div",
+                    Children: []goml.Element{
                         {
-                            "Name": "text",
-                            "Attributes": {
-                                "text": [
-                                    "no"
-                                ]
+                            Name: "button",
+                            Attributes: map[string][]string{
+                                "onclick": {"yes-handler-link"},
                             },
-                            "Children": []
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
+                            Children: []goml.Element{
+                                {
+                                    Name: "text",
+                                    Attributes: map[string][]string{
+                                        "text": {"yes"},
+                                    },
+                                },
+                            },
+                            prefabData: []goml.prefabData{
+                                {
+                                    Name:   "yes",
+                                    Target: "onclick",
+                                    Idx:    -1,
+                                },
+                            },
+                        },
+                        {
+                            Name: "button",
+                            Attributes: map[string][]string{
+                                "onclick": {"no-handler-link"},
+                            },
+                            Children: []goml.Element{
+                                {
+                                    Name: "text",
+                                    Attributes: map[string][]string{
+                                        "text": {"no"},
+                                    },
+                                },
+                                prefabData: []goml.prefabData{
+                                    {
+                                        Name:   "no",
+                                        Target: "onclick",
+                                        Idx:    -1,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
 }
 ```
 
@@ -155,3 +153,47 @@ Prefabs are probably best feature of goml which html should have. Prefab is some
 ```
 
 If you need extra spaces you can use `\` to prefix space so it will not get truncated. Same goes for writhing `<`, you have to write `\<` or it will be considered a new element. Mind that text will be parsed into element with name `text` and attribute `text` where string is stored. 
+
+# goss
+
+goss is css like "language" that plays well with goml. Syntax is almost identical to css, just bit more strict yet flexible where it needs to be.
+
+## Showcase
+
+```
+style:
+    some_floats: 10f 10.4f;
+    some_integers: 1i -1i;
+    some_strings: hello slack nice;
+    some_uints: 3u 5u;
+    everything_together: hello 10i 4.4f -2i 4 1000000u;
+;
+another_style:
+    property: value;
+;
+```
+
+Following "code" is parsed into:
+
+```go
+goss.Styles{
+    "another_style": {
+        "property": {"value"},
+    },
+    "style": {
+        "everything_together": {"hello", 10, 4.4, -2, 4, uint64(1000000)},
+        "some_floats":         {10, 10.4},
+        "some_integers":       {1, -1},
+        "some_strings":        {"hello", "slack", "nice"},
+        "some_uints":          {uint64(3), uint64(5)},
+    },
+}
+```
+
+Important part is that you can do:
+
+```
+<div style="prop: 10; prop2: something;"/>
+```
+
+And data structure will end up in `Element.Style`.
