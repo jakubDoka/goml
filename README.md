@@ -49,13 +49,6 @@ goml.Element{
                                     },
                                 },
                             },
-                            prefabData: []goml.prefabData{
-                                {
-                                    Name:   "yes",
-                                    Target: "onclick",
-                                    Idx:    -1,
-                                },
-                            },
                         },
                         {
                             Name: "button",
@@ -67,13 +60,6 @@ goml.Element{
                                     Name: "text",
                                     Attributes: map[string][]string{
                                         "text": {"no"},
-                                    },
-                                },
-                                prefabData: []goml.prefabData{
-                                    {
-                                        Name:   "no",
-                                        Target: "onclick",
-                                        Idx:    -1,
                                     },
                                 },
                             },
