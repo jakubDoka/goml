@@ -4,13 +4,47 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jakubDoka/goml/core"
+	"github.com/jakubDoka/goml/goss"
 	"github.com/jakubDoka/sterr"
 )
+
+func Test(t *testing.T) {
+	gp := goss.Parser{}
+	p := NParser(&gp)
+	p.AddDefinitions("div")
+	elem, err := p.Parse([]byte(`<div style="a: f;k: 10;h: 10f;"/>`))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	res := []Element{
+		{
+			Name: "div",
+			Attributes: Attribs{
+				"style": {"a: f;k: 10;h: 10f;"},
+			},
+			Style: goss.Style{
+				"a": {"f"},
+				"k": {int(10)},
+				"h": {float64(10)},
+			},
+		},
+	}
+
+	core.TestEqual(t, res, elem.Children)
+
+	elem, err = p.Parse([]byte(`<div style="a:f;k: 10;h: 10f;"/>`))
+	if err == nil {
+		t.Errorf("should fail")
+	}
+}
 
 type pr = map[string]Element
 
 func TestShowcase(t *testing.T) {
-	p := NParser()
+	p := NParser(nil)
 	p.AddDefinitions("div")
 	d, err := p.Parse([]byte(`
 <#>prefab definition<#>
@@ -41,7 +75,7 @@ func TestShowcase(t *testing.T) {
 }
 
 func TestPrefabGeneration(t *testing.T) {
-	p := NParser()
+	p := NParser(nil)
 	p.AddDefinitions("div")
 	testCases := []struct {
 		desc   string
@@ -186,24 +220,23 @@ func TestPrefabGeneration(t *testing.T) {
 			p.ClearPrefabs()
 			div, err := p.Parse([]byte(tC.input))
 			if !tC.err.SameSurface(err) {
-				t.Error(p.err)
-				t.Error(string(p.ch))
+				t.Error(p.Err)
+				t.Error(string(p.Ch))
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 
-			if !reflect.DeepEqual(div.Children, tC.output) {
-				t.Errorf("\n%#v\n%#v", div.Children, tC.output)
-			}
+			core.TestEqual(t, div.Children, tC.output)
+
 		})
 	}
 }
 
 func TestPrefabDef(t *testing.T) {
-	p := NParser()
+	p := NParser(nil)
 	p.AddDefinitions("div")
 	err := p.AddPrefabs([]byte(`<!ff><!/>`))
 	if err != nil {
@@ -228,11 +261,23 @@ func TestPrefabDef(t *testing.T) {
 			},
 		},
 		{
-			desc: "ident",
+			desc: "Ident",
 			input: `<!prefab>
 				<div h={}/>
 			<!/>`,
-			err: ErrPrefab.ident,
+			err: ErrPrefab.Ident,
+		},
+		{
+			desc: "incomplete prefabe",
+			input: `<!prefab>
+				<div h={`,
+			err: ErrAttrib.Incomplete,
+		},
+		{
+			desc: "incomplete list prefab",
+			input: `<!prefab>
+				<div h=[{`,
+			err: ErrAttrib.Incomplete,
 		},
 		{
 			desc:  "outside",
@@ -304,12 +349,13 @@ func TestPrefabDef(t *testing.T) {
 			p.ClearPrefabs()
 			_, err := p.Parse([]byte(tC.input))
 			if !tC.err.SameSurface(err) {
-				t.Error(p.err)
-				t.Error(string(p.ch))
+				t.Error(p.Err)
+				t.Error(sterr.ReadTrace(p.Err))
+				t.Error(string(p.Ch))
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 
@@ -321,7 +367,7 @@ func TestPrefabDef(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	p := NParser()
+	p := NParser(nil)
 	p.AddDefinitions("div", "fiv", "giv")
 	testCases := []struct {
 		desc   string
@@ -401,6 +447,11 @@ func TestParse(t *testing.T) {
 			err:   ErrDiv.AfterSlash,
 		},
 		{
+			desc:  "missing closure",
+			input: `<div>`,
+			err:   ErrDiv.MissingClosure,
+		},
+		{
 			desc:  "extra closure",
 			input: `<div></></>`,
 			err:   ErrDiv.ExtraClosure,
@@ -416,12 +467,12 @@ func TestParse(t *testing.T) {
 			p.ClearPrefabs()
 			div, err := p.Parse([]byte(tC.input))
 			if !tC.err.SameSurface(err) {
-				t.Error(p.err)
-				t.Error(string(p.ch), p.stack)
+				t.Error(p.Err)
+				t.Error(string(p.Ch), p.stack)
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 
@@ -433,7 +484,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestDiv(t *testing.T) {
-	p := NParser()
+	p := NParser(nil)
 	p.AddDefinitions("niv")
 	p.ClearDefinitions()
 	p.AddDefinitions("div", "fiv", "giv", "riv")
@@ -497,15 +548,15 @@ func TestDiv(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			p.Restart([]byte(tC.input))
-			p.advance()
-			p.advance()
+			p.Advance()
+			p.Advance()
 			p.element(false)
-			if !tC.err.SameSurface(p.err) {
-				t.Error(p.err)
+			if !tC.err.SameSurface(p.Err) {
+				t.Error(p.Err)
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 
@@ -596,6 +647,11 @@ func TestParseValue(t *testing.T) {
 			err:   ErrPrefab.Outside,
 		},
 		{
+			desc:  "incomplete",
+			input: ``,
+			err:   ErrDiv.Incomplete,
+		},
+		{
 			desc:  "long list",
 			input: `hello=["hello" "fl" "gg" "mm"] `,
 			output: Attribs{
@@ -608,13 +664,13 @@ func TestParseValue(t *testing.T) {
 			p.Restart([]byte(tC.input))
 			p.parsed = NDiv()
 			p.attribute()
-			if !tC.err.SameSurface(p.err) {
-				t.Error(p.err)
-				t.Error(string(p.ch))
+			if !tC.err.SameSurface(p.Err) {
+				t.Error(p.Err)
+				t.Error(string(p.Ch))
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 
@@ -739,7 +795,7 @@ func TestParseString(t *testing.T) {
 			err:   ErrEscape.Overflow,
 		},
 		{
-			desc:  "invalid escape ident",
+			desc:  "invalid escape Ident",
 			input: "\\kFF\"",
 			err:   ErrEscape.InvalidIdent,
 		},
@@ -773,12 +829,12 @@ func TestParseString(t *testing.T) {
 				tC.ending = '"'
 			}
 			p.string(tC.ending, tC.omit)
-			if !tC.err.SameSurface(p.err) {
-				t.Error(p.err)
+			if !tC.err.SameSurface(p.Err) {
+				t.Error(p.Err)
 				return
 			}
 
-			if p.failed() {
+			if p.Failed() {
 				return
 			}
 

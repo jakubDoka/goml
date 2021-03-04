@@ -30,13 +30,13 @@ func (p *Parser) string(ending byte, concatSpace bool) bool {
 	for {
 		afterSpace := r == ' '
 		r, fin = p.char(ending)
-		if p.failed() {
+		if p.Failed() {
 			return false
 		}
 		if fin {
 			break
 		}
-		if concatSpace && afterSpace && r == ' ' && p.source[p.i-1] != '\\' {
+		if concatSpace && afterSpace && r == ' ' && p.Source[p.I-1] != '\\' {
 			continue
 		}
 		p.stringBuff = append(p.stringBuff, r)
@@ -63,26 +63,26 @@ func (p *Parser) string(ending byte, concatSpace bool) bool {
 
 // char turns a go string syntax to its data representation
 func (p *Parser) char(ending byte) (r rune, end bool) {
-	if !p.advance() {
+	if !p.Advance() {
 		if ending == '<' {
 			return 0, true
 		}
-		p.error(ErrStringNotTerminated)
+		p.Error(ErrStringNotTerminated)
 		return
 	}
 
-	if p.ch >= utf8.RuneSelf {
+	if p.Ch >= utf8.RuneSelf {
 		var size int
-		r, size = utf8.DecodeRune(p.source[p.i:])
+		r, size = utf8.DecodeRune(p.Source[p.I:])
 		if r == utf8.RuneError {
-			p.error(ErrInvalidRune)
+			p.Error(ErrInvalidRune)
 			return
 		}
-		p.i += size - 1
+		p.I += size - 1
 		return
 	}
 
-	switch p.ch {
+	switch p.Ch {
 	case '\\':
 	// these runes are ignored, to add actual ones syntax has to be used
 	case '\n', '\t', '\r':
@@ -90,18 +90,18 @@ func (p *Parser) char(ending byte) (r rune, end bool) {
 	case '{':
 		return p.stringTemplate(), false
 	case ending:
-		p.advance()
+		p.Advance()
 		return 0, true
 	default:
-		return rune(p.ch), false
+		return rune(p.Ch), false
 	}
 
-	if !p.advance() {
-		p.error(ErrEscape.Incomplete)
+	if !p.Advance() {
+		p.Error(ErrEscape.Incomplete)
 		return
 	}
 
-	switch p.ch {
+	switch p.Ch {
 	case 'a':
 		return '\a', false
 	case 'b':
@@ -117,10 +117,10 @@ func (p *Parser) char(ending byte) (r rune, end bool) {
 	case 'v':
 		return '\v', false
 	case '\\', ' ', ending:
-		return rune(p.ch), false
+		return rune(p.Ch), false
 	}
 
-	if p.ch >= '0' && p.ch <= '7' {
+	if p.Ch >= '0' && p.Ch <= '7' {
 		return p.octal(), false
 	}
 
@@ -130,7 +130,7 @@ func (p *Parser) char(ending byte) (r rune, end bool) {
 // hex parses all of three possible hex rune syntaxes (\x00 \u0000 \U00000000)
 func (p *Parser) hex() (r rune) {
 	var n int
-	switch p.ch {
+	switch p.Ch {
 	case 'x':
 		n = 2
 	case 'u':
@@ -138,26 +138,26 @@ func (p *Parser) hex() (r rune) {
 	case 'U':
 		n = 8
 	default:
-		p.error(ErrEscape.InvalidIdent)
+		p.Error(ErrEscape.InvalidIdent)
 		return
 	}
 
 	var v int
 	for j := 0; j < n; j++ {
-		if p.advanceOr(ErrEscape.Incomplete) {
+		if p.AdvanceOr(ErrEscape.Incomplete) {
 			return
 		}
 
-		x, ok := unHex(p.ch)
+		x, ok := unHex(p.Ch)
 		if !ok {
-			p.error(ErrEscape.Illegal.Args("hex bytes"))
+			p.Error(ErrEscape.Illegal.Args("hex bytes"))
 			return
 		}
 		v = v<<4 | int(x)
 	}
 
 	if v > utf8.MaxRune {
-		p.error(ErrEscape.Overflow.Args(utf8.MaxRune))
+		p.Error(ErrEscape.Overflow.Args(utf8.MaxRune))
 		return
 	}
 
@@ -179,22 +179,22 @@ func unHex(c byte) (v byte, ok bool) {
 
 // octal parses octal byte syntax assuming that first byte is between '0' - '7' (\000)
 func (p *Parser) octal() (v rune) {
-	v = rune(p.ch) - '0'
+	v = rune(p.Ch) - '0'
 	for j := 0; j < 2; j++ {
-		if !p.advance() {
-			p.error(ErrEscape.Incomplete)
+		if !p.Advance() {
+			p.Error(ErrEscape.Incomplete)
 			return
 		}
-		x := rune(p.ch) - '0'
+		x := rune(p.Ch) - '0'
 		if x < 0 || x > 7 {
-			p.error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
+			p.Error(ErrEscape.Illegal.Args("bytes from '0' to '7'"))
 			return
 		}
 		v = (v << 3) | x
 	}
 
 	if v > 255 {
-		p.error(ErrEscape.Overflow.Args(225))
+		p.Error(ErrEscape.Overflow.Args(225))
 		return
 	}
 
@@ -203,20 +203,20 @@ func (p *Parser) octal() (v rune) {
 
 // stringTemplate registers string template if there is just one '{'
 func (p *Parser) stringTemplate() (r rune) {
-	if p.advanceOr(ErrStringNotTerminated) {
+	if p.AdvanceOr(ErrStringNotTerminated) {
 		return
 	}
-	if p.ch == '{' {
+	if p.Ch == '{' {
 		return '{'
 	}
-	p.degrade() // we advanced to get whats behind '{' so wh have to step back for template to read whole ident
-	start := p.i
+	//p.Degrade() // we advanced to get whats behind '{' so wh have to step back for template to read whole ident
+	start := p.I - 1
 	if !p.template(&p.parsed, stringTemplate) {
 		return
 	}
-	p.degrade() // degrade again or we will end up with '}}'
-	for i := start; i < p.i; {
-		r, size := utf8.DecodeRune(p.source[i:])
+	p.Degrade() // Degrade again or we will end up with '}}'
+	for i := start; i < p.I; {
+		r, size := utf8.DecodeRune(p.Source[i:])
 		p.stringBuff = append(p.stringBuff, r)
 		i += size
 	}

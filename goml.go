@@ -3,7 +3,8 @@ package goml
 import (
 	"strings"
 
-	"github.com/jakubDoka/gogen/str"
+	"github.com/jakubDoka/goml/core"
+	"github.com/jakubDoka/goml/goss"
 	"github.com/jakubDoka/sterr"
 )
 
@@ -17,8 +18,8 @@ import (
 
 // error variants
 var (
-	ErrReport  = sterr.New("located at %d:%d")
 	ErrUnknown = sterr.New("use of unknown identifier")
+	ErrStyle   = sterr.New("error when parsing style")
 )
 
 // ErrComment store comment related errors
@@ -33,21 +34,21 @@ var ErrComment = struct {
 var ErrDiv = struct {
 	Incomplete, Identifier, AfterIdent, AfterSlash, ExtraClosure, MissingClosure sterr.Err
 }{
-	sterr.New("incompleteelementdefinition"),
+	sterr.New("incomplete element definition"),
 	sterr.New("'<' must be folloved by element identifier when defining div"),
-	sterr.New("ident of element has to be folloved by ' ' or '/' or '>'"),
+	sterr.New("Ident of element has to be folloved by ' ' or '/' or '>'"),
 	sterr.New("'/' must alway be folloved by '>' if its part of element definition"),
 	sterr.New("found closing syntax but there is no element to close"),
-	sterr.New("some elements is not closed"),
+	sterr.New("some elements are not closed"),
 }
 
 // ErrPrefab stores prefab related errors
 var ErrPrefab = struct {
-	Shadow, Outside, ident, Attributes sterr.Err
+	Shadow, Outside, Ident, Attributes sterr.Err
 }{
 	sterr.New("prefab cannot shadow existing element or prefab"),
 	sterr.New("prefab syntax outside a prefab block is not allowed"),
-	sterr.New("only ident is allowed between '{}', spaces cannot be there"),
+	sterr.New("only identifier is allowed between '{}', found '%s' witch cannot be part of ident"),
 	sterr.New("prefab definition cannot have attributes"),
 }
 
@@ -68,25 +69,26 @@ var CommentEnd = []byte("<#>")
 
 // Parser takes a goml syntax and parses it into DivTree
 type Parser struct {
+	gs      *goss.Parser
 	stack   DivStack
 	defined map[string]bool
 	prefabs map[string]Element
 
-	attribIdent        string
-	root, parsed       Element
-	source             []byte
-	stringBuff         []rune
-	i, line, lineStart int
-	ch                 byte
-	err                error
-	inPrefab           bool
+	attribIdent  string
+	root, parsed Element
+	stringBuff   []rune
+	styleBuff    []byte
+	inPrefab     bool
+
+	parser
 }
 
 // NParser creates ready-to-use Parser
-func NParser() *Parser {
+func NParser(sp *goss.Parser) *Parser {
 	return &Parser{
 		defined: map[string]bool{},
 		prefabs: map[string]Element{},
+		gs:      sp,
 	}
 }
 
@@ -119,9 +121,9 @@ func (p *Parser) ClearPrefabs() {
 	}
 }
 
-// AddPrefabs adds prefabs from source
-func (p *Parser) AddPrefabs(source []byte) error {
-	_, err := p.Parse(source)
+// AddPrefabs adds prefabs from Source
+func (p *Parser) AddPrefabs(Source []byte) error {
+	_, err := p.Parse(Source)
 	return err
 }
 
@@ -133,38 +135,34 @@ func (p *Parser) RemovePrefabs(names ...string) {
 }
 
 // Restart restarts parser state for another parsing
-func (p *Parser) Restart(source []byte) {
-	p.source = source
-	p.i = -1
-	p.line = 0
-	p.lineStart = 0
-	p.err = nil
+func (p *Parser) Restart(Source []byte) {
+	p.parser.Restart(Source)
 	p.root = NDiv()
 	p.stack = p.stack[:0]
 	p.inPrefab = false
 }
 
 // Parse ...
-func (p *Parser) Parse(source []byte) (Element, error) {
-	p.Restart(source)
-	for p.skipSpace() && !p.failed() {
-		switch p.ch {
+func (p *Parser) Parse(Source []byte) (Element, error) {
+	p.Restart(Source)
+	for p.SkipSpace() && !p.Failed() {
+		switch p.Ch {
 		case '<':
-			if p.advanceOr(ErrDiv.Incomplete) {
+			if p.AdvanceOr(ErrDiv.Incomplete) {
 				break
 			}
 
-			switch p.ch {
+			switch p.Ch {
 			case '/':
 				if !p.elementEnd(false) {
 					break
 				}
 			case '!':
-				if p.advanceOr(ErrDiv.Incomplete) {
+				if p.AdvanceOr(ErrDiv.Incomplete) {
 					break
 				}
 
-				if p.ch == '/' {
+				if p.Ch == '/' {
 					if !p.elementEnd(true) {
 						break
 					}
@@ -176,22 +174,22 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 					break
 				}
 			case '#':
-				if p.check('>', ErrComment.AfterHash) {
+				if p.Check('>', ErrComment.AfterHash) {
 					break
 				}
 				for {
-					equal, ok := p.checkSlice(CommentEnd)
+					equal, ok := p.CheckSlice(CommentEnd)
 					if !ok {
-						p.error(ErrComment.NotClosed)
+						p.Error(ErrComment.NotClosed)
 						break
 					}
 					if equal {
-						p.advance()
-						p.advance()
-						p.advance()
+						p.Advance()
+						p.Advance()
+						p.Advance()
 						break
 					} else {
-						p.advance()
+						p.Advance()
 					}
 				}
 			default:
@@ -204,11 +202,11 @@ func (p *Parser) Parse(source []byte) (Element, error) {
 		}
 	}
 
-	if len(p.stack) != 0 {
-		p.error(ErrDiv.MissingClosure)
+	if len(p.stack) != 0 && p.Err == nil {
+		p.Error(ErrDiv.MissingClosure)
 	}
 
-	return p.root, p.err
+	return p.root, p.Err
 }
 
 // textElement parses a text paragraph into element with text attribute
@@ -216,15 +214,15 @@ func (p *Parser) textElement() bool {
 	p.parsed = NDiv()
 	p.parsed.Name = "text"
 	p.attribIdent = "text"
-	p.degrade()
+	p.Degrade()
 	if !p.string('<', true) {
 		return false
 	}
 	p.parsed.Attributes[p.attribIdent] = []string{string(p.stringBuff)}
 
-	if p.peek() {
-		p.degrade()
-		p.degrade()
+	if p.Peek() {
+		p.Degrade()
+		p.Degrade()
 	}
 
 	p.add(p.parsed)
@@ -233,7 +231,7 @@ func (p *Parser) textElement() bool {
 
 // elementEnd closes a p.current() div, also verifies that closing syntax is correct
 func (p *Parser) elementEnd(prefab bool) bool {
-	if p.check('>', ErrDiv.AfterSlash) {
+	if p.Check('>', ErrDiv.AfterSlash) {
 		return false
 	}
 
@@ -248,19 +246,18 @@ func (p *Parser) elementEnd(prefab bool) bool {
 		return true
 	}
 
-	p.error(ErrDiv.ExtraClosure)
+	p.Error(ErrDiv.ExtraClosure)
 	return false
 }
 
 // Element parses a element definition with its attributes, if element contains children, it will push it to stack
 // othervise bits is pushed to p.current()
 func (p *Parser) element(isPrefab bool) bool {
-	p.degrade()
 	p.parsed = NDiv()
-	p.parsed.Name = string(p.ident())
+	p.parsed.Name = string(p.Ident())
 
 	if p.parsed.Name == "" {
-		p.error(ErrDiv.Identifier)
+		p.Error(ErrDiv.Identifier)
 		return false
 	}
 
@@ -268,21 +265,21 @@ func (p *Parser) element(isPrefab bool) bool {
 	dok := p.defined[p.parsed.Name]
 	if p.inPrefab {
 		if pok {
-			p.error(ErrPrefab.Shadow)
+			p.Error(ErrPrefab.Shadow)
 			return false
 		}
 	} else {
 		if !pok && !dok {
-			p.error(ErrUnknown)
+			p.Error(ErrUnknown)
 			return false
 		}
 	}
 
 	for {
-		switch p.ch {
+		switch p.Ch {
 		case ' ':
 			if isPrefab {
-				p.error(ErrPrefab.Attributes)
+				p.Error(ErrPrefab.Attributes)
 				return false
 			}
 
@@ -291,7 +288,7 @@ func (p *Parser) element(isPrefab bool) bool {
 			}
 			continue
 		case '/':
-			if p.check('>', ErrDiv.AfterSlash) {
+			if p.Check('>', ErrDiv.AfterSlash) {
 				return false
 			}
 
@@ -306,7 +303,7 @@ func (p *Parser) element(isPrefab bool) bool {
 		case '>':
 			p.stack.Push(p.parsed)
 		default:
-			p.error(ErrDiv.AfterIdent)
+			p.Error(ErrDiv.AfterIdent)
 			return false
 		}
 		return true
@@ -315,15 +312,18 @@ func (p *Parser) element(isPrefab bool) bool {
 
 // attribute parses one attribute of div
 func (p *Parser) attribute() bool {
-	p.attribIdent = string(p.ident())
-	switch p.ch {
+	if p.AdvanceOr(ErrDiv.Incomplete) {
+		return false
+	}
+	p.attribIdent = string(p.Ident())
+	switch p.Ch {
 	case '=':
 		return p.value()
 	case ' ':
 		p.parsed.Attributes[p.attribIdent] = append(p.parsed.Attributes[p.attribIdent], "true")
 		return true
 	default:
-		p.error(ErrAttrib.Assignmant)
+		p.Error(ErrAttrib.Assignmant)
 		return false
 	}
 }
@@ -334,23 +334,39 @@ func (p *Parser) attribute() bool {
 //
 // or just simple string, it will append to current p.attribIdent of p.parsed.Attributes
 func (p *Parser) value() bool {
-	if p.advanceOr(ErrAttrib.Incomplete) {
+	if p.AdvanceOr(ErrAttrib.Incomplete) {
 		return false
 	}
 
-	switch p.ch {
+	switch p.Ch {
 	case '"':
 		if p.string('"', false) {
-			p.parsed.Attributes[p.attribIdent] = append(p.parsed.Attributes[p.attribIdent], string(p.stringBuff))
+			p.parsed.Attributes[p.attribIdent] = []string{string(p.stringBuff)}
+
+			if p.gs != nil && p.attribIdent == "style" {
+				p.styleBuff = p.styleBuff[:0]
+				for _, r := range p.stringBuff {
+					p.styleBuff = append(p.styleBuff, byte(r))
+				}
+				style, err := p.gs.Style(p.styleBuff)
+				if err != nil {
+					p.Err = ErrStyle.Wrap(p.ReportError().Wrap(err))
+					return false
+				}
+				p.parsed.Style = style
+			}
 			return true
 		}
 		return false
 	case '{':
+		if p.AdvanceOr(ErrAttrib.Incomplete) {
+			return false
+		}
 		return p.template(&p.parsed, wholeTemplate)
 	case '[':
 		return p.list()
 	default:
-		p.error(ErrAttrib.ValueStart)
+		p.Error(ErrAttrib.ValueStart)
 		return false
 	}
 }
@@ -359,15 +375,15 @@ func (p *Parser) value() bool {
 func (p *Parser) list() bool {
 	list := p.parsed.Attributes[p.attribIdent]
 	for {
-		switch p.ch {
+		switch p.Ch {
 		case ' ', '[':
-			if p.advanceOr(ErrAttrib.ListIncomplete) {
+			if p.AdvanceOr(ErrAttrib.ListIncomplete) {
 				return false
 			}
 
-			switch p.ch {
+			switch p.Ch {
 			case ' ':
-				p.error(ErrAttrib.ExtraSpace)
+				p.Error(ErrAttrib.ExtraSpace)
 				return false
 			case '"':
 				if !p.string('"', false) {
@@ -375,20 +391,23 @@ func (p *Parser) list() bool {
 				}
 				list = append(list, string(p.stringBuff))
 			case '{':
+				if p.AdvanceOr(ErrAttrib.Incomplete) {
+					return false
+				}
 				if !p.template(&p.parsed, len(list)) {
 					return false
 				}
 				list = append(list, "") // place a placeholder
 			default:
-				p.error(ErrAttrib.BetweenByte)
+				p.Error(ErrAttrib.BetweenByte)
 				return false
 			}
 		case ']':
 			p.parsed.Attributes[p.attribIdent] = list
 
-			return !p.advanceOr(ErrAttrib.Incomplete)
+			return !p.AdvanceOr(ErrAttrib.Incomplete)
 		default:
-			p.error(ErrAttrib.BetweenByte)
+			p.Error(ErrAttrib.BetweenByte)
 			return false
 		}
 	}
@@ -397,13 +416,14 @@ func (p *Parser) list() bool {
 // template parses a prefab template parameter and saves it to prefab div
 func (p *Parser) template(target *Element, idx int) bool {
 	if !p.inPrefab {
-		p.error(ErrPrefab.Outside)
+		p.Error(ErrPrefab.Outside)
 		return false
 	}
 
-	name := string(p.ident())
-	if name == "" || p.ch != '}' {
-		p.error(ErrPrefab.ident)
+	name := string(p.Ident())
+	if name == "" || p.Ch != '}' {
+		p.Error(ErrPrefab.Ident.Args(string(p.Ch)).Trace(4))
+		//panic(p.Err)
 		return false
 	}
 
@@ -413,109 +433,7 @@ func (p *Parser) template(target *Element, idx int) bool {
 		Idx:    idx,
 	})
 
-	return !p.advanceOr(ErrDiv.Incomplete)
-}
-
-// failed returns whether error happened
-func (p *Parser) failed() bool {
-	return p.err != nil
-}
-
-// error sets p.err and adds the line info
-func (p *Parser) error(err sterr.Err) {
-	p.err = err.Wrap(ErrReport.Args(p.line, p.i-p.lineStart))
-}
-
-// checkSlice checks if next len(lice) bytes are equal to slice content
-//
-// ok will be false if there is not enough bytes in p.source
-// equal will be true if slices are equal
-func (p *Parser) checkSlice(slice []byte) (equal, ok bool) {
-	if len(p.source) <= len(slice)+p.i {
-		return
-	}
-
-	for i := 0; i < len(slice); i++ {
-		if p.source[p.i+i] != slice[i] {
-			return false, true
-		}
-	}
-
-	return true, true
-}
-
-// check returns false if p.advance succeeds and p.ch == b
-// othervise it rises error
-func (p *Parser) check(b byte, err sterr.Err) bool {
-	ok := p.advance() && p.ch == b
-	if !ok {
-		p.error(err)
-	}
-	return !ok
-}
-
-// skipSpace ignores all invisible characters until it finds visible one
-// if there is new line character, it updates the p.line and p.lineStart
-//
-// returns false if advance fails
-func (p *Parser) skipSpace() bool {
-	for p.advance() {
-		switch p.ch {
-		case ' ', '\t':
-		case '\n':
-			p.line++
-			p.lineStart = p.i + 1
-		default:
-			return true
-		}
-	}
-
-	return false
-}
-
-// ident reads ident and returns slice where it is located
-func (p *Parser) ident() []byte {
-	start := p.i + 1
-	for p.advance() && str.IsIdent(p.ch) || p.ch == '.' {
-	}
-	return p.source[start:p.i]
-}
-
-// advanceOr raises error if advancement fails, return value of p.advance is inverted
-func (p *Parser) advanceOr(err sterr.Err) bool {
-	ok := p.advance()
-	if !ok {
-		p.error(err)
-	}
-	return !ok
-}
-
-// advance calls p.peek acd increases i
-func (p *Parser) advance() bool {
-	ok := p.peek()
-	if ok {
-		p.i++
-	}
-	return ok
-}
-
-// peek stores next byte in p.ch, returns true is action wos successfull
-func (p *Parser) peek() bool {
-	if p.i+1 >= len(p.source) {
-		return false
-	}
-	p.ch = p.source[p.i+1]
-	return true
-}
-
-// degrade goes one byte back, opposite of p.advance
-func (p *Parser) degrade() bool {
-	p.i--
-	if p.i < 0 {
-		return false
-	}
-	p.ch = p.source[p.i]
-	return true
+	return !p.AdvanceOr(ErrDiv.Incomplete)
 }
 
 // add adds child to current div
@@ -539,6 +457,7 @@ type Attribs = map[string][]string
 type Element struct {
 	Name       string
 	Attributes Attribs
+	Style      goss.Style
 	Children   []Element
 	prefabData []prefabData
 }
@@ -597,4 +516,8 @@ const (
 type prefabData struct {
 	Name, Target string
 	Idx          int
+}
+
+type parser struct {
+	core.Parser
 }
