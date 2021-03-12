@@ -1,6 +1,7 @@
 package goml
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jakubDoka/goml/core"
@@ -453,7 +454,51 @@ func (p *Parser) current() *Element {
 }
 
 // Attribs ...
-type Attribs = map[string][]string
+type Attribs map[string][]string
+
+// Ident returns first value under the key, if no ky is presen, default value is returned
+func (a Attribs) Ident(key, def string) (v string) {
+	v = def
+	val, ok := a[key]
+	if !ok {
+		return
+	}
+
+	return val[0]
+}
+
+// Int returns first integer under the key, if value is not
+// integer or is not present false is returned
+func (a Attribs) Int(key string, def int) (v int) {
+	v = def
+	val, ok := a[key]
+	if !ok {
+		return
+	}
+
+	u, err := strconv.Atoi(val[0])
+	if err != nil {
+		return
+	}
+	return u
+}
+
+// Float returns first floating point under the key, if value is not
+// integer or is not present false is returned
+func (a Attribs) Float(key string, def float64) (v float64) {
+	v = def
+	val, ok := a[key]
+	if !ok {
+		return
+	}
+
+	u, err := strconv.ParseFloat(val[0], 64)
+	if err != nil {
+		return
+	}
+
+	return u
+}
 
 // Element is representation goml element
 type Element struct {

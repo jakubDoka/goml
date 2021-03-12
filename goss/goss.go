@@ -2,6 +2,7 @@ package goss
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/jakubDoka/goml/core"
 	"github.com/jakubDoka/sterr"
@@ -123,7 +124,16 @@ func (p *Parser) value() bool {
 		p.Error(ErrExpectedValue)
 		return false
 	}
-	p.val = string(ident)
+
+	switch v := string(ident); v {
+	case "true":
+		p.val = true
+	case "false":
+		p.val = false
+	default:
+		p.val = v
+	}
+
 	return true
 }
 
@@ -142,7 +152,11 @@ func (p *Parser) number() (bool, error) {
 	case 'u':
 		p.val, err = strconv.ParseUint(num, 10, 64)
 	default:
-		p.val, err = strconv.Atoi(num)
+		if strings.Contains(num, ".") {
+			p.val, err = strconv.ParseFloat(num, 64)
+		} else {
+			p.val, err = strconv.Atoi(num)
+		}
 		return true, err
 	}
 
@@ -167,6 +181,17 @@ func (p *Parser) ident(tgt *string) bool {
 
 // Styles is a collection of Styles
 type Styles map[string]Style
+
+// Add adds styles and owewrite the present ones
+func (s Styles) Add(o Styles) {
+	for k, v := range o {
+		if val, ok := s[k]; ok {
+			v.Overwrite(val)
+		} else {
+			s[k] = v
+		}
+	}
+}
 
 // Style is a parsed form of goss syntax
 type Style map[string][]interface{}
@@ -214,7 +239,9 @@ func (s Style) Uint(key string) (uint64, bool) {
 // Overwrite overwrites o by s, props can be overwritten and also added
 func (s Style) Overwrite(o Style) {
 	for k, v := range s {
-		o[k] = v
+		nv := make([]interface{}, len(v))
+		copy(nv, v)
+		o[k] = nv
 	}
 }
 
