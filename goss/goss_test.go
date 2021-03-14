@@ -17,45 +17,59 @@ func TestParse(t *testing.T) {
 	}{
 		{
 			desc:  "no ident",
-			input: `a:+;`,
+			input: `a{+}`,
 			err:   ErrIdent,
 		},
 		{
 			desc:  "no ':'",
-			input: `a:b;`,
+			input: `a{b}`,
 			err:   ErrExpectedByte,
 		},
 		{
 			desc:  "no value",
-			input: `a:b:  ;`,
+			input: `a{b: a}`,
 			err:   ErrExpectedValue,
 		},
 		{
 			desc: "all features",
-			input: `a:
-b: 10i;
-c: 11f;
-e: hello;
-d: kl ml f 10u 10;
-			;`,
+			input: `
+a{
+	b: 10i;
+	c: 11f;
+	e: hello;
+	d: kl ml f 10 {
+		h: 10;
+		k: 3;
+		s: hello ml kl;
+	};
+			}`,
 			out: Styles{
 				"a": {
 					"b": {10},
 					"c": {float64(11)},
 					"e": {"hello"},
-					"d": {"kl", "ml", "f", uint64(10), 10},
+					"d": {"kl", "ml", "f", 10, Style{
+						"h": {10},
+						"k": {3},
+						"s": {"hello", "ml", "kl"},
+					}},
 				},
 			},
 		},
 		{
 			desc:  "all features one line",
-			input: `a:b: 10i;c: 11f;e: hello;d: kl ml f 10u 10;;`,
+			input: `a{b: 10i;c: 11f;e: hello;d: kl ml f 10;f{a:10;b:2;k:h k j;}}`,
 			out: Styles{
 				"a": {
 					"b": {10},
 					"c": {float64(11)},
 					"e": {"hello"},
-					"d": {"kl", "ml", "f", uint64(10), 10},
+					"d": {"kl", "ml", "f", 10},
+					"f": {Style{
+						"a": {10},
+						"b": {2},
+						"k": {"h", "k", "j"},
+					}},
 				},
 			},
 		},
@@ -65,6 +79,7 @@ d: kl ml f 10u 10;
 			out, err := p.Parse([]byte(tC.input))
 			if !tC.err.SameSurface(err) {
 				t.Error(err)
+				t.Error(sterr.ReadTrace(err))
 			}
 
 			if p.Failed() {
@@ -83,10 +98,10 @@ func TestParserStyle(t *testing.T) {
 		"b": {10},
 		"c": {float64(11)},
 		"e": {"hello"},
-		"d": {"kl", "ml", "f", uint64(10), 10},
+		"d": {"kl", "ml", "f", 10},
 	}
 
-	s, err := p.Style([]byte("b: 10i;c: 11f;e: hello;d: kl ml f 10u 10;"))
+	s, err := p.Style([]byte("b: 10i;c: 11f;e: hello;d: kl ml f 10;"))
 	if err != nil {
 		t.Error(err)
 		return

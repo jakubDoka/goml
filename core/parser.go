@@ -91,13 +91,10 @@ func (p *Parser) SkipSpace() bool {
 }
 
 // Number returns slice containing number, it returns empty slice if no number is present
+// it assumes that curent byte is the beginning of number
 func (p *Parser) Number() []byte {
 	start := p.I
-	if p.Ch != '-' && !IsNum(p.Ch) {
-		return nil
-	}
-
-	for p.Advance() && (IsNum(p.Ch) || p.Ch == '.') {
+	for p.Advance() && IsNum(p.Ch) {
 	}
 
 	// to prevent too long offset, just '-' is not a number
@@ -112,7 +109,12 @@ func (p *Parser) Number() []byte {
 
 // IsNum returns whether byte is a number
 func IsNum(b byte) bool {
-	return b >= '0' && b <= '9'
+	return b == '.' || b >= '0' && b <= '9'
+}
+
+// IsNumStart also checks for negative number
+func IsNumStart(b byte) bool {
+	return IsNum(b) || b == '-'
 }
 
 // Ident reads Ident and returns slice where it is located
@@ -122,8 +124,9 @@ func (p *Parser) Ident() []byte {
 		return nil
 	}
 
-	for p.Advance() && (str.IsIdent(p.Ch) || p.Ch == '.') {
+	for p.Advance() && str.IsIdent(p.Ch) {
 	}
+
 	return p.Source[start:p.I]
 }
 
