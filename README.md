@@ -147,33 +147,37 @@ goss is css like "language" that plays well with goml. Syntax is almost identica
 ## Showcase
 
 ```
-style:
+style{
     some_floats: 10f 10.4f;
     some_integers: 1i -1i;
     some_strings: hello slack nice;
-    some_uints: 3u 5u;
-    everything_together: hello 10i 4.4f -2i 4 1000000u;
-;
-another_style:
+    everything_together: hello 10i 4.4f -2i 4 1000000;
+    sub_style{
+        anonymous: {a:b;c:d;} {e:f;i:j;};
+    }
+}
+another_style{
     property: value;
-;
+}
 ```
 
 Following "code" is parsed into:
 
 ```go
 goss.Styles{
-    "another_style": {
-        "property": {"value"},
-    },
-    "style": {
-        "everything_together": {"hello", 10, 4.4, -2, 4, uint64(1000000)},
-        "some_floats":         {10, 10.4},
-        "some_integers":       {1, -1},
-        "some_strings":        {"hello", "slack", "nice"},
-        "some_uints":          {uint64(3), uint64(5)},
-    },
-}
+		"another_style": {
+			"property": {"value"},
+		},
+		"style": {
+			"everything_together": {"hello", 10, 4.4, -2, 4, 1000000},
+			"some_floats":         {float64(10), 10.4},
+			"some_integers":       {1, -1},
+			"some_strings":        {"hello", "slack", "nice"},
+			"sub_style": {goss.Style{
+				"anonymous": {goss.Style{"a": {"b"}, "c": {"d"}}, goss.Style{"e": {"f"}, "i": {"j"}}},
+			}},
+		},
+	}
 ```
 
 Important part is that you can do:

@@ -7,6 +7,43 @@ import (
 	"github.com/jakubDoka/sterr"
 )
 
+func TestReadme(t *testing.T) {
+	p := Parser{}
+	stl, err := p.Parse([]byte(`
+style{
+    some_floats: 10f 10.4f;
+    some_integers: 1i -1i;
+    some_strings: hello slack nice;
+    everything_together: hello 10i 4.4f -2i 4 1000000;
+    sub_style{
+        anonymous: {a:b;c:d;} {e:f;i:j;};
+    }
+}
+another_style{
+    property: value;
+}
+	`))
+	if err != nil {
+		panic(err)
+	}
+	res := Styles{
+		"another_style": {
+			"property": {"value"},
+		},
+		"style": {
+			"everything_together": {"hello", 10, 4.4, -2, 4, 1000000},
+			"some_floats":         {float64(10), 10.4},
+			"some_integers":       {1, -1},
+			"some_strings":        {"hello", "slack", "nice"},
+			"sub_style": {Style{
+				"anonymous": {Style{"a": {"b"}, "c": {"d"}}, Style{"e": {"f"}, "i": {"j"}}},
+			}},
+		},
+	}
+
+	core.TestEqual(t, stl, res)
+}
+
 func TestParse(t *testing.T) {
 	p := Parser{}
 	testCases := []struct {

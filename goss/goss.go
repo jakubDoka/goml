@@ -119,7 +119,7 @@ func (p *Parser) value() interface{} {
 		return nil
 	default:
 		if core.IsNumStart(p.Ch) {
-			return p.number(p.Ch == '-')
+			return p.number()
 		}
 		ident := p.Ident()
 		if ident == nil {
@@ -130,16 +130,13 @@ func (p *Parser) value() interface{} {
 	}
 }
 
-func (p *Parser) number(negative bool) (val interface{}) {
+func (p *Parser) number() (val interface{}) {
 	slice := p.Number()
 	if slice == nil {
 		return nil
 	}
 
 	num := string(slice)
-	if negative {
-		num = "-" + num
-	}
 
 	var err error
 	suffix := true
@@ -175,81 +172,3 @@ type stl struct {
 	name string
 	stl  Style
 }
-
-// Style parses standalone ambiguous style
-/*func (p *Parser) Style(source []byte) (Style, error) {
-	p.Restart(source)
-	p.cStyle = "inline"
-	p.style(true)
-
-	return p.parsed, p.Err
-}
-
-// Style
-func (p *Parser) style(standalone bool) bool {
-	p.parsed = Style{}
-	for p.SkipSpace() {
-		if p.Ch == ';' {
-			return true
-		}
-		if !p.ident(&p.cField) {
-			return false
-		}
-
-		if p.AdvanceOr(ErrIncomplete) {
-			return false
-		}
-
-		p.valBuff = p.valBuff[:0]
-	o:
-		for {
-			switch p.Ch {
-			case ';':
-				break o
-			case ' ':
-			default:
-				p.Error(ErrExpectedByte.Args(' ', p.Ch))
-				return false
-			}
-
-			if p.AdvanceOr(ErrIncomplete) {
-				return false
-			}
-			if !p.value() {
-				return false
-			}
-
-			p.valBuff = append(p.valBuff, p.val)
-		}
-
-		if len(p.valBuff) == 0 {
-			p.Error(ErrNoValues.Args(p.cField, p.cStyle))
-			return false
-		}
-
-		vals := make([]interface{}, len(p.valBuff))
-		copy(vals, p.valBuff)
-		p.parsed[p.cField] = vals
-	}
-
-	if !standalone {
-		p.Error(ErrIncomplete)
-	}
-	return standalone
-}
-
-
-
-func (p *Parser) ident(tgt *string) bool {
-	ident := p.Ident()
-	if len(ident) == 0 {
-		p.Error(ErrIdent)
-		return false
-	}
-	if p.Ch != ':' {
-		p.Error(ErrExpectedByte.Args(':', p.Ch))
-		return false
-	}
-	*tgt = string(ident)
-	return true
-}*/

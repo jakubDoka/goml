@@ -17,6 +17,17 @@ func (s Styles) Add(o Styles) {
 // Style is a parsed form of goss syntax
 type Style map[string][]interface{}
 
+// Sub returns substyle within style
+func (s Style) Sub(key string) (Style, bool) {
+	val, ok := s[key]
+	if !ok {
+		return nil, false
+	}
+
+	v, ok := val[0].(Style)
+	return v, ok
+}
+
 // Ident returns first string under the property
 func (s Style) Ident(key string) (string, bool) {
 	val, ok := s[key]
