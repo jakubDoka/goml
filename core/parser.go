@@ -78,7 +78,7 @@ func (p *Parser) Check(b byte, err sterr.Err) bool {
 func (p *Parser) SkipSpace() bool {
 	for p.Advance() {
 		switch p.Ch {
-		case ' ', '\t':
+		case ' ', '\t', '\r':
 		case '\n':
 			p.Line++
 			p.LineStart = p.I + 1

@@ -63,6 +63,7 @@ func (p *Parser) Style(source []byte) (Style, error) {
 	p.goml = true
 	p.Ch = '{'
 	val, _ := p.value().(Style)
+	p.goml = false
 	return val, p.Err
 }
 
