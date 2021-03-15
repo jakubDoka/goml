@@ -2,7 +2,7 @@
     "name": "goss-lang",
     "displayName": "goss lang",
     "description": "syntax highlighting for goss lang",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "publisher": "jakubDoka",
     "repository": "github.com/jakubDoka/goml",
     "engines": {
