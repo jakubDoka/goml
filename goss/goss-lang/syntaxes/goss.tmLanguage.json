@@ -40,12 +40,12 @@
             "patterns": [
                 {
                     "comment": "Floating-point literals",
-                    "match": "( -| )[\\d]*\\.?[\\d]*\\b",
+                    "match": "(\\s-|\\s)[\\d]*\\.?[\\d]*\\s",
                     "name": "constant.numeric.floating-point.goss"
                 },
 				{
                     "comment": "integer literals",
-                    "match": "( -| )[\\d]*\\b",
+                    "match": "(\\s-|\\s)[\\d]*\\b",
                     "name": "constant.numeric.integer.goss"
                 },
                 {
@@ -55,7 +55,7 @@
                 },
 				{
 					"comment": "string",
-					"match": "(?<= )[a-zA-Z][a-zA-Z0-9]*(?=( |;))",
+					"match": "(?<=\\s)[a-zA-Z][a-zA-Z0-9]*(?=(\\s|;))",
 					"name": "string.goss"
 
 				}
