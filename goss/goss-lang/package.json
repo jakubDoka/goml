@@ -1,0 +1,36 @@
+{
+    "name": "goss-lang",
+    "displayName": "goss lang",
+    "description": "syntax highlighting for goss lang",
+    "version": "0.0.3",
+    "publisher": "jakubDoka",
+    "repository": "github.com/jakubDoka/goml",
+    "engines": {
+        "vscode": "^1.54.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "goss",
+                "aliases": [
+                    "Goss",
+                    "goss"
+                ],
+                "extensions": [
+                    ".goss"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "goss",
+                "scopeName": "source.goss",
+                "path": "./syntaxes/goss.tmLanguage.json"
+            }
+        ]
+    }
+}

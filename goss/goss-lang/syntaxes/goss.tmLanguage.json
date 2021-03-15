@@ -1,0 +1,66 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Goss",
+	"patterns": [
+		{
+			"include": "#ident"
+		},
+		{
+			"include": "#constant"
+		},
+		{
+			"include": "#errors"
+		}
+	],
+	"repository": {
+		"ident": {
+			"patterns": [
+				{
+					"comment": "union",
+					"match":"[a-zA-Z_][a-zA-Z0-9_]*(?={)",
+					"name":"entity.name.function.goss"
+				},
+				{
+					"comment": "field",
+					"match":"[a-zA-Z_][a-zA-Z0-9_]*(?=:)",
+					"name":"variable.other.declaration.goss"
+				}
+			]
+		},
+		"errors": {
+			"patterns": [
+				{
+					"comment": "invalid characters",
+					"match": "\\,",
+					"name":"invalid.illegal.goss"
+				}
+			]
+		},
+		"constant": {
+            "patterns": [
+                {
+                    "comment": "Floating-point literals",
+                    "match": "( -| )[\\d]*\\.?[\\d]*\\b",
+                    "name": "constant.numeric.floating-point.goss"
+                },
+				{
+                    "comment": "integer literals",
+                    "match": "( -| )[\\d]*\\b",
+                    "name": "constant.numeric.integer.goss"
+                },
+                {
+                    "comment": "Language constants",
+                    "match": "\\b(true|false)\\b",
+                    "name": "constant.language.goss"
+                },
+				{
+					"comment": "string",
+					"match": "(?<= )[a-zA-Z][a-zA-Z0-9]*(?=( |;))",
+					"name": "string.goss"
+
+				}
+            ]
+        }
+	},
+	"scopeName": "source.goss"
+}
