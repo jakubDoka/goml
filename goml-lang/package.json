@@ -1,0 +1,36 @@
+{
+    "name": "goml-lang",
+    "displayName": "Goml lang",
+    "description": "syntax highlighting for goml",
+    "publisher": "jakubDoka",
+    "version": "0.0.3",
+    "repository": "github.com/jakubDoka/goml",
+    "engines": {
+        "vscode": "^1.54.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "goml",
+                "aliases": [
+                    "Goml",
+                    "goml"
+                ],
+                "extensions": [
+                    ".goml"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "goml",
+                "scopeName": "source.goml",
+                "path": "./syntaxes/goml.tmLanguage.json"
+            }
+        ]
+    }
+}

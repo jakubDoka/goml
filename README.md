@@ -140,6 +140,10 @@ Prefabs are probably best feature of goml which html should have. Prefab is some
 
 If you need extra spaces you can use `\` to prefix space so it will not get truncated. Same goes for writhing `<`, you have to write `\<` or it will be considered a new element. Mind that text will be parsed into element with name `text` and attribute `text` where string is stored. 
 
+## extension
+
+Extension for syntax highlighting can be found [here](https://marketplace.visualstudio.com/items?itemName=jakubDoka.goml-lang)
+
 # goss
 
 goss is css like "language" that plays well with goml. Syntax is almost identical to css, just bit more strict yet flexible where it needs to be.
@@ -187,3 +191,7 @@ Important part is that you can do:
 ```
 
 And data structure will end up in `Element.Style`.
+
+## extension
+
+Extension for syntax highlighting can be found [here](https://marketplace.visualstudio.com/items?itemName=jakubDoka.goss-lang)
