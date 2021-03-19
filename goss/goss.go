@@ -127,6 +127,15 @@ func (p *Parser) value() interface{} {
 			p.Error(ErrExpectedValue)
 			return nil
 		}
+
+		str := string(ident)
+		if str == "true" {
+			return true
+		}
+		if str == "false" {
+			return false
+		}
+
 		return string(ident)
 	}
 }

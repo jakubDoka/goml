@@ -42,7 +42,7 @@
 			"patterns": [
 				{
 					"comment": "string literals",
-					"match": "\".*\"",
+					"match": "\"(\\s)*\"",
 					"name": "string.goss"
 				}
 			]
