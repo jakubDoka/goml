@@ -39,13 +39,22 @@
 		},
 
 		"strings":{
-			"patterns": [
-				{
-					"comment": "string literals",
-					"match": "\"(\\s)*\"",
-					"name": "string.goss"
-				}
-			]
+			"patterns": [{
+				"comment": "Raw string literals",
+				"begin": "\"",
+				"beginCaptures": {
+					"0": {
+						"name": "punctuation.definition.string.begin.goss"
+					}
+				},
+				"end": "\"",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.definition.string.end.goss"
+					}
+				},
+				"name": "string.quoted.raw.goss"
+			}]
 		}
 	},
 	"scopeName": "source.goml"
