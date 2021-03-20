@@ -3,6 +3,9 @@
 	"name": "Goml",
 	"patterns": [
 		{
+			"include": "#comments"
+		},
+		{
 			"include": "#elements"
 		},
 		{
@@ -34,6 +37,27 @@
 					"comment": "template",
 					"match": "<![a-zA-Z_][a-zA-Z0-9_]*>|<!\\/>",
 					"name":"variable.name.goss"
+				}
+			]
+		},
+
+		"comments":{
+			"patterns": [
+				{
+					"comment": "comments",
+					"begin": "<#>",
+					"beginCaptures": {
+						"0":{
+							"name":"comment.block.start.goss"		
+						}
+					},
+					"end": "<#>",
+					"endCaptures": {
+						"0":{
+							"name":"comment.block.end.goss"		
+						}
+					},
+					"name": "comment.block.goss"
 				}
 			]
 		},
