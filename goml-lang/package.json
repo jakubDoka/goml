@@ -3,7 +3,7 @@
     "displayName": "Goml lang",
     "description": "syntax highlighting for goml",
     "publisher": "jakubDoka",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "repository": "github.com/jakubDoka/goml",
     "engines": {
         "vscode": "^1.54.0"
