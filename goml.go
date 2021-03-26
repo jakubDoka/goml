@@ -528,7 +528,9 @@ func (d Element) create(atr Attribs) Element {
 	// copy attributes
 	nat := make(Attribs, len(d.Attributes))
 	for k, v := range d.Attributes {
-		nat[k] = v
+		nv := make([]string, len(v))
+		copy(nv, v)
+		nat[k] = nv
 	}
 	d.Attributes = nat
 

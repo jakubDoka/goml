@@ -170,12 +170,27 @@ func TestPrefabGeneration(t *testing.T) {
 			<!/>
 
 			<h there="meme"/>
+			<h there="kek"/>
 			`,
 			output: []Element{
 				{
 					Name: "div",
 					Attributes: Attribs{
 						"h": {"hello meme"},
+					},
+					Children: []Element{},
+					prefabData: []prefabData{
+						{
+							Name:   "there",
+							Target: "h",
+							Idx:    -2,
+						},
+					},
+				},
+				{
+					Name: "div",
+					Attributes: Attribs{
+						"h": {"hello kek"},
 					},
 					Children: []Element{},
 					prefabData: []prefabData{
