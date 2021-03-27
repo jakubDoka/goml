@@ -73,7 +73,6 @@ func (p *Parser) value() interface{} {
 		stl := Style{}
 	o:
 		for p.SkipSpace() {
-
 			if p.Ch == '}' {
 				return stl
 			}
@@ -103,6 +102,9 @@ func (p *Parser) value() interface{} {
 					}
 					val = append(val, v)
 					if _, ok := v.(Style); !ok {
+						if !p.Peek() {
+							break
+						}
 						p.Degrade()
 					}
 				}
