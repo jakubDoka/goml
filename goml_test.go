@@ -35,7 +35,7 @@ func Test(t *testing.T) {
 
 	core.TestEqual(t, res, elem.Children)
 
-	elem, err = p.Parse([]byte(`<div style="a:f;k: 10;h: 10f;"/>`))
+	elem, err = p.Parse([]byte(`<div style="a:f;k: 10;h: 10f"/>`))
 	if err == nil {
 		t.Errorf("should fail")
 	}
@@ -71,7 +71,7 @@ func TestShowcase(t *testing.T) {
 		t.Error(err)
 		return
 	}*/
-	t.Errorf("%#v", d)
+	//t.Errorf("%#v", d)
 }
 
 func TestPrefabGeneration(t *testing.T) {

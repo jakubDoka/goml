@@ -65,7 +65,7 @@ func TestParse(t *testing.T) {
 		{
 			desc:  "no value",
 			input: `a{b: a}`,
-			err:   ErrExpectedValue,
+			err:   ErrFieldIncomplete,
 		},
 		{
 			desc: "all features",

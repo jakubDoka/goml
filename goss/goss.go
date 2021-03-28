@@ -102,7 +102,7 @@ func (p *Parser) value() interface{} {
 					}
 					val = append(val, v)
 					if _, ok := v.(Style); !ok {
-						if !p.Peek() {
+						if !p.Peek() && p.Ch != ';' {
 							break
 						}
 						p.Degrade()
